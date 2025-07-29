@@ -472,6 +472,7 @@ def yolov5x6(pretrained=True, channels=3, classes=80, autoshape=True, _verbose=T
     """
     return _create("yolov5x6", pretrained, channels, classes, autoshape, _verbose, device)
 
+
 def yolov5reflectiveclothes(pretrained=True, channels=3, classes=80, autoshape=True, _verbose=True, device=None):
     """
     Creates the YOLOv5-xlarge-P6 model with options for pretraining, number of input channels, class count, autoshaping,
@@ -500,6 +501,7 @@ def yolov5reflectiveclothes(pretrained=True, channels=3, classes=80, autoshape=T
         https://docs.ultralytics.com/yolov5
     """
     return _create("yolov5reflectiveclothes", pretrained, channels, classes, autoshape, _verbose, device)
+
 
 def yolov5helmet(pretrained=True, channels=3, classes=80, autoshape=True, _verbose=True, device=None):
     """
