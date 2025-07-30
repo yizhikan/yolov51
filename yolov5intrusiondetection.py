@@ -26,7 +26,6 @@ while True:
                   color=[0, 0, 255],  # 红色线条（BGR）
                   thickness=2  # 线条粗细
                   )
-
     # 在帧上绘制检测结果
     for *xyxy, conf, cls in results.xyxy[0]:
         label = f'{model.model.names[int(cls)]} {conf:.2f}'
