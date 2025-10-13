@@ -1,18 +1,18 @@
-#不需要摄像头参数
+# 不需要摄像头参数
+import math
+import time
+from collections import defaultdict
+
+import cv2
+import numpy as np
 import torch
+from deep_sort_pytorch.deep_sort import DeepSort
+from PIL import Image, ImageDraw, ImageFont
 from yolov5.models.experimental import attempt_load
 from yolov5.utils.general import non_max_suppression
-from yolov5.utils.torch_utils import select_device
-import numpy as np
-import cv2
-import time
-from deep_sort_pytorch.deep_sort import DeepSort
-import math
-from collections import defaultdict
-from PIL import Image, ImageDraw, ImageFont
 
-YOLO_WEIGHTS = 'yolov5s.pt'
-DEEPSORT_MODEL_PATH = 'deepsort/deep_sort_pytorch/ckpt.t7'
+YOLO_WEIGHTS = "yolov5s.pt"
+DEEPSORT_MODEL_PATH = "deepsort/deep_sort_pytorch/ckpt.t7"
 
 # 聚集判断参数
 RELATIVE_DISTANCE_THRESHOLD = 0.7  # 相对距离阈值（基于人体高度）
@@ -23,7 +23,7 @@ TIME_THRESHOLD = 1  # 持续聚集时间阈值（秒）
 
 # -------------------------- 自定义letterbox函数 --------------------------
 def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True):
-    """自定义letterbox：保持宽高比缩放图像，并填充到目标尺寸（YOLOv5标准预处理）"""
+    """自定义letterbox：保持宽高比缩放图像，并填充到目标尺寸（YOLOv5标准预处理）."""
     shape = img.shape[:2]  # 原始尺寸 (h, w)
     if isinstance(new_shape, int):
         new_shape = (new_shape, new_shape)
@@ -84,7 +84,7 @@ def clip_coords(boxes, img_shape):
 
 # -------------------------- 辅助函数 --------------------------
 def calculate_iou(box1, box2):
-    """计算两个边界框的交并比(IoU)"""
+    """计算两个边界框的交并比(IoU)."""
     # 解包边界框坐标
     x1_1, y1_1, x2_1, y2_1 = box1
     x1_2, y1_2, x2_2, y2_2 = box2
@@ -114,16 +114,13 @@ def calculate_iou(box1, box2):
 
 
 def estimate_relative_distance(bbox_height1, bbox_height2, pixel_distance):
-    """
-    估算两个人之间的相对距离（基于人体高度）
-    使用两个人高度的几何平均值作为参考尺度
-    """
+    """估算两个人之间的相对距离（基于人体高度） 使用两个人高度的几何平均值作为参考尺度."""
     # 计算平均高度（使用几何平均以减少极端值的影响）
     avg_height = math.sqrt(bbox_height1 * bbox_height2)
 
     # 避免除以零
     if avg_height == 0:
-        return float('inf')
+        return float("inf")
 
     # 相对距离 = 像素距离 / 平均高度
     relative_distance = pixel_distance / avg_height
@@ -132,11 +129,7 @@ def estimate_relative_distance(bbox_height1, bbox_height2, pixel_distance):
 
 
 def estimate_perspective_corrected_position(bottom_center_x, bottom_center_y, bbox_height, img_height):
-    """
-    估算透视校正后的位置
-    假设图像底部的人更近，顶部的人更远
-    通过y坐标进行简单的透视校正
-    """
+    """估算透视校正后的位置 假设图像底部的人更近，顶部的人更远 通过y坐标进行简单的透视校正."""
     # 计算y坐标的归一化值（0在顶部，1在底部）
     normalized_y = bottom_center_y / img_height
 
@@ -152,10 +145,10 @@ def estimate_perspective_corrected_position(bottom_center_x, bottom_center_y, bb
 
 
 # -------------------------- 模型初始化 --------------------------
-def init_models(yolo_weights=YOLO_WEIGHTS, deepsort_model=DEEPSORT_MODEL_PATH, device='0'):
-    """初始化YOLOv5和DeepSort模型"""
+def init_models(yolo_weights=YOLO_WEIGHTS, deepsort_model=DEEPSORT_MODEL_PATH, device="0"):
+    """初始化YOLOv5和DeepSort模型."""
     # 初始化YOLOv5
-    device = torch.device(f'cuda:{device}' if torch.cuda.is_available() and device != 'cpu' else 'cpu')
+    device = torch.device(f"cuda:{device}" if torch.cuda.is_available() and device != "cpu" else "cpu")
     yolo_model = attempt_load(yolo_weights, device=device)
     yolo_model.eval()
 
@@ -166,7 +159,7 @@ def init_models(yolo_weights=YOLO_WEIGHTS, deepsort_model=DEEPSORT_MODEL_PATH, d
 
 
 def detect_persons(frame, model, device):
-    """YOLOv5检测人员，修复图像预处理步骤"""
+    """YOLOv5检测人员，修复图像预处理步骤."""
     # 关键修复：同时获取缩放比例和填充信息
     img, ratio, pad = letterbox(frame, new_shape=640)  # 获取三个返回值
 
@@ -186,8 +179,7 @@ def detect_persons(frame, model, device):
     for det in pred:
         if len(det):
             # 修复：传递正确格式的ratio_pad参数 (ratio, pad)
-            det[:, :4] = scale_coords(img.shape[2:], det[:, :4], frame.shape,
-                                      ratio_pad=(ratio, pad)).round()
+            det[:, :4] = scale_coords(img.shape[2:], det[:, :4], frame.shape, ratio_pad=(ratio, pad)).round()
             for *xyxy, conf, cls in reversed(det):
                 x1, y1, x2, y2 = map(int, xyxy)
                 persons.append((x1, y1, x2, y2, float(conf)))
@@ -195,7 +187,7 @@ def detect_persons(frame, model, device):
 
 
 def track_persons(frame, detections, deepsort_tracker):
-    """DeepSort跟踪人员（适配需要classes参数的版本）"""
+    """DeepSort跟踪人员（适配需要classes参数的版本）."""
     if not detections:
         return {}
 
@@ -203,7 +195,7 @@ def track_persons(frame, detections, deepsort_tracker):
     bbox_xywh = []
     confidences = []
     classes = []
-    for (x1, y1, x2, y2, conf) in detections:
+    for x1, y1, x2, y2, conf in detections:
         w = x2 - x1
         h = y2 - y1
         cx = x1 + w / 2
@@ -230,7 +222,7 @@ def track_persons(frame, detections, deepsort_tracker):
 
 
 def judge_gathering(tracked_persons, history, gathering_start_time, current_time, frame_shape):
-    """判断是否存在人员聚集（基于相对距离、透视校正和IoU）"""
+    """判断是否存在人员聚集（基于相对距离、透视校正和IoU）."""
     h, w = frame_shape[:2]
 
     # 记录当前位置和透视校正后的位置
@@ -279,9 +271,7 @@ def judge_gathering(tracked_persons, history, gathering_start_time, current_time
             pixel_distance = math.hypot(dx, dy)
 
             # 计算相对距离（基于人体高度）
-            relative_distance = estimate_relative_distance(
-                bbox_heights[i], bbox_heights[j], pixel_distance
-            )
+            relative_distance = estimate_relative_distance(bbox_heights[i], bbox_heights[j], pixel_distance)
 
             # 计算IoU（用于检测重叠的人员）
             iou = calculate_iou(bboxes[i], bboxes[j])
@@ -316,14 +306,8 @@ def judge_gathering(tracked_persons, history, gathering_start_time, current_time
 
 
 def put_chinese_text(img, text, position, font_size=1, color=(0, 0, 255)):
-    """
-    在图像上绘制中文文本（修复版）
-    :param img: OpenCV图像(numpy array)
-    :param text: 要绘制的文本
-    :param position: 位置 (x, y)
-    :param font_size: 字体大小
-    :param color: 颜色 (B, G, R)
-    :return: 绘制了文本的图像
+    """在图像上绘制中文文本（修复版） :param img: OpenCV图像(numpy array) :param text: 要绘制的文本 :param position: 位置 (x, y) :param
+    font_size: 字体大小 :param color: 颜色 (B, G, R) :return: 绘制了文本的图像.
     """
     # 转换颜色空间 (BGR -> RGB)
     rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -352,7 +336,7 @@ def put_chinese_text(img, text, position, font_size=1, color=(0, 0, 255)):
 
 
 # -------------------------- 主函数 --------------------------
-def main(video_path=0, output_path='D:/dataset/Collective Activity/data/ActivityDataset/seq01/output.mp4'):
+def main(video_path=0, output_path="D:/dataset/Collective Activity/data/ActivityDataset/seq01/output.mp4"):
     # 初始化模型
     yolo_model, deepsort_tracker, device = init_models()
     print(f"使用设备: {device}")
@@ -368,7 +352,7 @@ def main(video_path=0, output_path='D:/dataset/Collective Activity/data/Activity
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     # 初始化视频写入器
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # MP4格式编码
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # MP4格式编码
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
     # 用于记录跟踪历史（位置）
     track_history = defaultdict(list)
@@ -406,39 +390,38 @@ def main(video_path=0, output_path='D:/dataset/Collective Activity/data/Activity
             cv2.circle(frame, (bottom_center_x, bottom_center_y), 5, (255, 0, 0), -1)
 
             # 绘制ID（英文，用默认字体即可）
-            cv2.putText(frame, f"ID: {track_id}", (x1, y1 - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            cv2.putText(frame, f"ID: {track_id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
             # 显示相对距离信息（仅用于调试）
             if track_id in gathering_ids:
-                cv2.putText(frame, "CLOSE", (x1, y2 + 20),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+                cv2.putText(frame, "CLOSE", (x1, y2 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
 
         # 显示聚集警告（中文，使用自定义函数）
         if is_gathering:
-            frame = put_chinese_text(frame, "警告: 人员聚集!", (50, 50),
-                                     font_size=1, color=(0, 0, 255))
+            frame = put_chinese_text(frame, "警告: 人员聚集!", (50, 50), font_size=1, color=(0, 0, 255))
 
             # 在画面底部显示提示信息
-            frame = put_chinese_text(frame, "检测到人员过于接近，请保持安全距离",
-                                     (50, frame.shape[0] - 50), font_size=0.8, color=(0, 0, 255))
+            frame = put_chinese_text(
+                frame, "检测到人员过于接近，请保持安全距离", (50, frame.shape[0] - 50), font_size=0.8, color=(0, 0, 255)
+            )
 
         # 显示调试信息
-        frame = put_chinese_text(frame, f"人员数量: {len(tracked_persons)}", (10, 30),
-                                 font_size=0.7, color=(255, 255, 255))
+        frame = put_chinese_text(
+            frame, f"人员数量: {len(tracked_persons)}", (10, 30), font_size=0.7, color=(255, 255, 255)
+        )
 
         if is_gathering:
-            frame = put_chinese_text(frame, f"聚集人数: {len(gathering_ids)}", (10, 60), font_size=0.7,
-                                     color=(0, 0, 255))
+            frame = put_chinese_text(
+                frame, f"聚集人数: {len(gathering_ids)}", (10, 60), font_size=0.7, color=(0, 0, 255)
+            )
 
         # 写入视频帧
         out.write(frame)
         # 显示画面
         cv2.imshow("人员聚集检测", frame)
 
-
         # 按q退出
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
     # 释放资源
